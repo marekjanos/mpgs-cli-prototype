@@ -30,7 +30,8 @@ it), then let `mpgs` check what you built.
 
 ## What you need
 
-- macOS or Linux. **Windows is not supported.** [uv](https://docs.astral.sh/uv/) (or
+- macOS or Linux. Windows is untested but likely to work: the CLI's own tests pass on
+  Windows, but no one has run it against the gateway from Windows yet. [uv](https://docs.astral.sh/uv/) (or
   `pipx`) with Python 3.11 or later
 - A **TEST merchant profile** on the MTF test gateway: its merchant ID (it starts with
   `TEST`) and its API password, from your payment service provider
@@ -43,7 +44,7 @@ it), then let `mpgs` check what you built.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.0/mpgs_cli-0.5.0-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.1/mpgs_cli-0.5.1-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -57,7 +58,8 @@ The CLI reads your merchant ID and API password, in this order, from:
 
 1. Environment variables: `MPGS_MERCHANT_ID` and `MPGS_API_PASSWORD`
 2. An `.env` file your backend already uses: `mpgs --env-file .env --env-keys MY_MID,MY_PASSWORD …`
-3. Your operating system's password store (macOS Keychain, Linux Secret Service): `mpgs login TESTYOURMID` asks for the password once and stores
+3. Your operating system's password store (macOS Keychain, Linux Secret Service, Windows
+   Credential Manager): `mpgs login TESTYOURMID` asks for the password once and stores
    it; then set only `MPGS_MERCHANT_ID`. On macOS, the first read may show a dialog asking
    whether Python may use the item: choose "Always Allow". On a Linux machine with no
    password store (a server, a container), use 1 or 2 instead.
@@ -72,7 +74,7 @@ export MPGS_MERCHANT_ID=TESTYOURMID
 mpgs doctor
 ```
 
-## 3. Find your path
+## 3. Find your integration path
 
 Say what you want to build, in your own words:
 
@@ -174,7 +176,8 @@ mpgs test <path ID>             # the core scenarios: approve, decline, …
 step, where the card, order ID and amount go (placeholders such as `{card}`, `{orderId}`),
 where your response names the order, and where it carries the 3-D Secure redirect. You
 write no test scripts. A step can also be a command (`exec = "…"`) that prints one JSON
-object.
+object. On Windows, write it in single quotes (TOML's literal string, so backslashes stay)
+and put a path with spaces in double quotes inside it.
 
 Every check says what it could not see ("blind"): calls the gateway rejected before they
 created a transaction, and steps that run in the payer's browser.
