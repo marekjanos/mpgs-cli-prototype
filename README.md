@@ -38,13 +38,13 @@ it), then let `mpgs` check what you built.
 - The release: the wheel `mpgs_cli-<version>-py3-none-any.whl`, from the
   [releases](https://github.com/marekjanos/mpgs-cli-prototype/releases). It carries the CLI
   and the documentation it serves.
-- Only for the 3-D Secure challenge scenario: Google Chrome and the
-  [`agent-browser`](https://www.npmjs.com/package/agent-browser) CLI
+- Only for the 3-D Secure challenge scenarios and Hosted Checkout paths: Google Chrome and
+  the [`agent-browser`](https://www.npmjs.com/package/agent-browser) CLI
 
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.3/mpgs_cli-0.5.3-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.4/mpgs_cli-0.5.4-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -174,8 +174,13 @@ mpgs test <path ID>             # the core scenarios: approve, decline, …
 
 `mpgs.toml` says how your backend is already called: which endpoint performs which path
 step, where the card, order ID and amount go (placeholders such as `{card}`, `{orderId}`),
-where your response names the order, and where it carries the 3-D Secure redirect. You
-write no test scripts. A step can also be a command (`exec = "…"`) that prints one JSON
+where your response names the order, and where it carries the 3-D Secure redirect. A
+step that stands for path steps on both sides of the challenge (one resume endpoint for
+Authenticate Payer and the payment) is called again after the challenge, as the payer's
+browser calls it. A scenario that declines a later merchant-initiated payment changes
+the card's expiry at that step (the test gateway declines by card value): map the step
+to an endpoint that takes the card from the request, a test route if yours charges the
+stored card. You write no test scripts. A step can also be a command (`exec = "…"`) that prints one JSON
 object. On Windows, write it in single quotes (TOML's literal string, so backslashes stay)
 and put a path with spaces in double quotes inside it.
 
@@ -396,9 +401,14 @@ gateway's error text through in your backend's error response, or `mpgs test` ca
 tell this refusal from others. A profile that keeps several tokens per card never refuses,
 and nothing is deleted.
 
-Hosted Checkout paths are not tested yet: `mpgs test` cannot pay on the gateway's
-payment page, so it answers exit `5` with that reason. Pay on your checkout in a browser
-with the path's test cards (`mpgs path get <id>` lists them).
+On a Hosted Checkout path (the payment page, embedded or a payment link), set
+`session_id` (JSONPath) on the step whose response names the checkout session, or
+`payment_link` on the one that names the link's URL: `mpgs test` opens the gateway's page
+in a visible Chrome window and pays on it with the scenario's card, as the payer would.
+Paths whose browser steps run on your own page (the 3-D Secure JavaScript API, Click to
+Pay) differ for every shop: `mpgs test` answers exit `5` with that reason. Pay on your
+checkout in a browser with the path's test cards (`mpgs path get <id>` lists them), then
+run `mpgs check <id> --order <order ID>` on each order.
 
 ```
 $ mpgs test pay-3ds-token-direct
