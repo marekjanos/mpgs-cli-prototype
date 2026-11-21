@@ -44,7 +44,7 @@ it), then let `mpgs` check what you built.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.2/mpgs_cli-0.5.2-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.3/mpgs_cli-0.5.3-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -375,7 +375,9 @@ scenario that must stop the payment (a 3-D Secure challenge the payer fails) pas
 nothing was charged. A scenario marked `*` works on the test gateway but is not in the
 integration guides. `challenge` (a 3-D Secure challenge card) is added on paths with
 3-D Secure. A scenario that starts at a later step (`mpgs path get` shows "from step
-2") runs the steps before it with the approve card. Scenarios that send a field the path
+2") runs the steps before it with the approve card. A step that runs only when a
+condition holds (the resubmission of a declined payment) is called only by a scenario
+that starts or ends there, and `check` does not require it. Scenarios that send a field the path
 does not are not run here. By default `mpgs test` runs the path's core scenarios:
 one for each way your backend must handle an answer (approved, declined, an expired card,
 3-D Secure rejected, and so on). `--all` adds the others, which take the same branch as a
