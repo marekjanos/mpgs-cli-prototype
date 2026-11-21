@@ -44,7 +44,7 @@ it), then let `mpgs` check what you built.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.1/mpgs_cli-0.5.1-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.2/mpgs_cli-0.5.2-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -383,6 +383,16 @@ core one with another card or answer (timed out and acquirer error are handled a
 expired card is). `--scenario` runs one. The add-ons are those in `mpgs.toml`, or
 `--addon <id>` (repeatable) in their place: each scenario then runs the path with them,
 and `approve` checks their fields as `check --addon` does.
+
+On a path that updates a token with a new card (a card change under an agreement), a
+profile that keeps one token per card refuses the update when an earlier run stored that
+card on another token ("already exists against token"). When a step of your backend fails
+with that refusal, `mpgs test` deletes the token that holds the scenario's card and the
+one holding the path's new card on your TEST profile, and runs the scenario once more;
+`mpgs test --json` lists each token it deleted in the scenario's `notes`. Pass the
+gateway's error text through in your backend's error response, or `mpgs test` cannot
+tell this refusal from others. A profile that keeps several tokens per card never refuses,
+and nothing is deleted.
 
 Hosted Checkout paths are not tested yet: `mpgs test` cannot pay on the gateway's
 payment page, so it answers exit `5` with that reason. Pay on your checkout in a browser
