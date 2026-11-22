@@ -86,9 +86,9 @@ token works on the test gateway), and dynamic currency conversion.
 
 ## What you need
 
-- macOS or Linux. Windows is untested but likely to work: the CLI's own tests pass on
-  Windows, but no one has run it against the gateway from Windows yet. [uv](https://docs.astral.sh/uv/) (or
-  `pipx`) with Python 3.11 or later
+- macOS or Linux. On Windows the CLI's own tests pass, but no one has run it against the
+  gateway from Windows yet (use PowerShell or Windows Terminal).
+  [uv](https://docs.astral.sh/uv/) (or `pipx`) with Python 3.11 or later
 - A **TEST merchant profile** on the MTF test gateway: its merchant ID (it starts with
   `TEST`) and its API password, from your payment service provider
 - The release: the wheel `mpgs_cli-<version>-py3-none-any.whl`, from the
@@ -101,7 +101,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.5/mpgs_cli-0.5.5-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.6/mpgs_cli-0.5.6-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -128,6 +128,7 @@ Check it works, and see what your profile can do:
 
 ```bash
 export MPGS_MERCHANT_ID=TESTYOURMID
+# PowerShell: $env:MPGS_MERCHANT_ID = "TESTYOURMID"
 mpgs doctor
 ```
 
@@ -345,7 +346,9 @@ path work as they are). With no arguments, it shows what is there.
 
 ### `mpgs login <TESTMID>`
 
-Asks for the API password once and stores it in your OS password store.
+Asks for the API password once and stores it in your OS password store. On Windows, run it
+in PowerShell or Windows Terminal (not a non-console pipe such as Git Bash's mintty), or
+pass `--env-file`.
 
 ### `mpgs doctor`
 
@@ -492,14 +495,16 @@ up your runs (`--since YYYY-MM-DD`).
 
 `update` first looks for a newer `mpgs` in the
 [releases](https://github.com/marekjanos/mpgs-cli-prototype/releases). When there is one,
-it downloads the wheel, checks it against its published checksum and size, and installs
-it with the tool you installed this one with (`uv tool install --force`, or `pipx install
---force`), on the same Python. The new `mpgs` then fetches the documentation (the paths,
-guides and API reference), checked the same way, so documentation that needs the new
-version installs in the same run. `--no-cli` updates only the documentation and keeps your
-`mpgs`. An `mpgs` not installed with uv or pipx (from source, say) is not replaced:
-`update` says a newer one is out, and you install it as in step 1. `--version` names the
-CLI and the documentation release.
+on macOS and Linux it downloads the wheel, checks it against its published checksum and
+size, and installs it with the tool you installed this one with (`uv tool install --force`,
+or `pipx install --force`), on the same Python; the new `mpgs` then fetches the
+documentation (the paths, guides and API reference), checked the same way, so documentation
+that needs the new version installs in the same run. On Windows, where a running program
+cannot replace its own `.exe`, `update` updates the documentation and prints the exact
+`uv tool install --force` (or `pipx install --force`) command to install the new `mpgs`.
+`--no-cli` updates only the documentation and keeps your `mpgs`. An `mpgs` not installed
+with uv or pipx (from source, say) is not replaced: `update` says a newer one is out, and
+you install it as in step 1. `--version` names the CLI and the documentation release.
 
 A path that needs a newer `mpgs` than yours is still listed and readable, but `path run`
 and `test` refuse it: "This path needs a newer mpgs: run `mpgs update`." (exit `5`).
@@ -528,7 +533,7 @@ works.
 | HTTP 400 "Application Security Module Event Detected" (exit 4) | The gateway's firewall: too many calls too fast. Wait about 10 minutes; run at most two clients at once |
 | `no OS password store available` | Use `MPGS_API_PASSWORD` or `--env-file` instead of `mpgs login` |
 | `… does not answer: is the backend running?` | `mpgs adapter check` cannot reach `base_url` in `mpgs.toml` |
-| `{env:NAME} is not set in this shell` | `mpgs.toml` uses a variable your shell lacks: export it before `mpgs test`, or the CLI sends it empty |
+| `{env:NAME} is not set in this shell` | `mpgs.toml` uses a variable your shell lacks: export it (PowerShell: `$env:NAME = "…"`) before `mpgs test`, or the CLI sends it empty |
 | `the gateway asked for a 3-D Secure challenge … names no answer` (`mpgs test`) | The scenario's card is challenged on this path but the scenario has no answer for it: the path's test data, not your backend. `mpgs update` may bring a fix |
 | `no documentation installed` | Reinstall the CLI (`uv tool install --force ./mpgs_cli-…whl`) |
 | `certificate is not trusted` or `certificate verify failed` | Your network inspects HTTPS with a root certificate your operating system does not trust: ask your IT team to install it system-wide |
@@ -541,4 +546,5 @@ works.
 ```bash
 uv tool uninstall mpgs-cli      # or: pipx uninstall mpgs-cli
 rm -rf ~/.mpgs                  # optional: documentation, logs, run summaries
+# PowerShell: Remove-Item -Recurse -Force ~/.mpgs
 ```
