@@ -28,6 +28,62 @@ and **prove it works** before go-live:
 profile, build your integration from it (you or your coding agent: `mpgs` does not write
 it), then let `mpgs` check what you built.
 
+## What it covers
+
+Every path below has been run end to end on the test gateway, with its test scenarios.
+The documentation pack bundled with this version has **99 paths, 59 distinct use
+cases**: most use cases come both as Pay (one step) and as Authorize + Capture, and you
+pick one of the two, so each is listed once here. `mpgs path list` shows them all.
+
+| Integration method | Use cases | Paths |
+|---|---|---|
+| Direct API (your server sends the card or a token) | 39 | 75 |
+| Hosted Session (card in the gateway's hosted fields or your mobile app) | 15 | 17 |
+| Hosted Checkout (the gateway's payment page) | 5 | 7 |
+
+**Direct API**
+
+- **Card number:** on its own, with 3-D Secure, or with 3-D Secure done by another
+  provider.
+- **Gateway token** or **your own network token** (MDES, VTS, AETS): the same three.
+- **Stored cards (an agreement: the payer's first payment, then payments you take on
+  your own):** the card stored by you, as a gateway token or as your own network token,
+  each without 3-D Secure, with it, or with another provider's; signed up with a payment
+  or with no charge (a zero-amount verification); a card stored by another provider;
+  recurring Apple Pay and Google Pay.
+- **Apple Pay and Google Pay, decrypted on your server:** Apple Pay; Google Pay with the
+  device card, the saved card, either, or the saved card with 3-D Secure.
+- **Card present:** a chip card on a POS terminal, and Tap on Phone.
+- **Aggregated transit fares:** Mastercard and Amex, Visa, EFTPOS.
+
+**Hosted Session**
+
+- **Card in hosted fields:** pay; pay and store the card as a gateway token; with
+  3-D Secure from your server or with the 3DS JavaScript API; add a card without a
+  payment (with or without 3-D Secure), then pay with it; a stored token with a fresh
+  security code.
+- **Stored cards (an agreement):** as a gateway token, without 3-D Secure, with it, or
+  with the 3DS JavaScript API.
+- **Your mobile app (the Mobile SDK):** pay, pay and store the card, add a card without
+  a payment, stored cards.
+- **Click to Pay** on your payment page.
+
+**Hosted Checkout**
+
+The gateway's payment page as a redirect, embedded in yours, or as a payment link;
+verify the card on the page, then charge it from your server; sign up on the page, then
+charge the stored card on your own.
+
+**Add-ons** (on the paths they apply to, each run on the test gateway on some of them;
+`mpgs path get <id>` lists a path's add-ons): statement
+descriptor, sub-merchant details (payment facilitators), airline data, cruise data,
+account funding, Payment Options Inquiry, industry-practice charges you take after the
+payment, estimated authorization, deferred authorization, phone and mail orders, and on
+the payment page 3-D Secure control, line items, and redirect and retry settings.
+
+**Not covered:** Apple Pay and Google Pay where the gateway decrypts the token (no test
+token works on the test gateway), and dynamic currency conversion.
+
 ## What you need
 
 - macOS or Linux. Windows is untested but likely to work: the CLI's own tests pass on
@@ -39,12 +95,13 @@ it), then let `mpgs` check what you built.
   [releases](https://github.com/marekjanos/mpgs-cli-prototype/releases). It carries the CLI
   and the documentation it serves.
 - Only for the 3-D Secure challenge scenarios and Hosted Checkout paths: Google Chrome and
-  the [`agent-browser`](https://www.npmjs.com/package/agent-browser) CLI
+  the [`agent-browser`](https://www.npmjs.com/package/agent-browser) CLI (each `mpgs`
+  command uses its own browser session; set `AGENT_BROWSER_SESSION` to name one)
 
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.4/mpgs_cli-0.5.4-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.5/mpgs_cli-0.5.5-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -265,10 +322,10 @@ give `check`, `adapter init` and `test` the same add-ons.
 $ mpgs path run pay-apple-pay-merchant-decrypted-direct
 Ran pay-apple-pay-merchant-decrypted-direct with TESTYOURMID on the MTF test gateway.
 
-PASS  1. Pay   order mpgs-ref-1794565573 · transaction pay-1 · APPROVED
+PASS  1. Pay   order mpgs-ref-1794565573-a1b2c3 · transaction pay-1 · APPROVED
 
 Passed: your profile can do this path. …
-See every request and response: mpgs logs --order mpgs-ref-1794565573 --full
+See every request and response: mpgs logs --order mpgs-ref-1794565573-a1b2c3 --full
 ```
 
 ### `mpgs path prompt <id>`
@@ -320,7 +377,9 @@ so are the terms of an agreement (`agreement.type` UNSCHEDULED where the path's 
 RECURRING, when your amounts vary). Each transaction is checked against its own step:
 on a path that makes two payments (the payer's, then a later one you take on your own),
 the first payment is checked against step 1 and the second against step 2, so name every
-order your code made for the path. Exit `1` when a check fails.
+order your code made for the path. On a path where no step of yours makes a transaction
+(the gateway's payment page takes the payment), the order's own status is checked against
+the path's Retrieve Order step (`CAPTURED` for a payment). Exit `1` when a check fails.
 
 With `--addon <id>` (repeatable; the add-ons you ran `path run --addon` with), the add-on's
 fields are checked too: one with a fixed value (account funding's `order.purchaseType`)
@@ -389,7 +448,9 @@ one for each way your backend must handle an answer (approved, declined, an expi
 core one with another card or answer (timed out and acquirer error are handled as an
 expired card is). `--scenario` runs one. The add-ons are those in `mpgs.toml`, or
 `--addon <id>` (repeatable) in their place: each scenario then runs the path with them,
-and `approve` checks their fields as `check --addon` does.
+and `approve` checks their fields as `check --addon` does. With `--json`, each scenario
+lists `orders`: every order it made (a sign-up and each later payment have their own), so
+`mpgs check <id> --order <first> --order <second> …` can check them all again.
 
 On a path that updates a token with a new card (a card change under an agreement), a
 profile that keeps one token per card refuses the update when an earlier run stored that
