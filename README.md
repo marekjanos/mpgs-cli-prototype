@@ -101,7 +101,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.5.6/mpgs_cli-0.5.6-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.6.0/mpgs_cli-0.6.0-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -428,6 +428,15 @@ declined merchant-initiated payment, a declined card change): the steps before i
 the approve card, and the scenario fails when no step of `mpgs.toml` performs the step it
 starts at. `adapter check <id>` names the path steps `mpgs.toml` does not map.
 
+A path that moves money also offers the requests you send after the payment: Void and
+Refund (`mpgs path get <id>` shows them under "After the payment"). If your backend has a
+route for one, map it in a table of its own, `[after.void-pay]`, `[after.void-authorize]`,
+`[after.void-capture]` or `[after.refund]` (`init` writes them commented out; they take
+`post`, `get` or `exec` and `body` as a step does). Their placeholders are `{orderId}`,
+`{targetTransactionId}` (the gateway's ID of the transaction to cancel: a payment, an
+authorization or a capture), and for a refund `{amount}` and `{currency}`. Without these
+tables nothing changes: those requests are not run.
+
 ### `mpgs test <id>`
 
 Runs each scenario through your backend as `mpgs.toml` maps it, creating orders on the
@@ -444,7 +453,11 @@ integration guides. `challenge` (a 3-D Secure challenge card) is added on paths 
 3-D Secure. A scenario that starts at a later step (`mpgs path get` shows "from step
 2") runs the steps before it with the approve card. A step that runs only when a
 condition holds (the resubmission of a declined payment) is called only by a scenario
-that starts or ends there, and `check` does not require it. Scenarios that send a field the path
+that starts or ends there, and `check` does not require it. A scenario that declines a
+step and then recovers (a declined transit fare, then its debt recovery) sends its card
+to that step only, and the decline there does not end it: the steps that follow only an
+approval (the period's Capture) are not called, and the CLI then calls the recovery steps,
+with the approve card. Scenarios that send a field the path
 does not are not run here. By default `mpgs test` runs the path's core scenarios:
 one for each way your backend must handle an answer (approved, declined, an expired card,
 3-D Secure rejected, and so on). `--all` adds the others, which take the same branch as a
@@ -454,6 +467,16 @@ expired card is). `--scenario` runs one. The add-ons are those in `mpgs.toml`, o
 and `approve` checks their fields as `check --addon` does. With `--json`, each scenario
 lists `orders`: every order it made (a sign-up and each later payment have their own), so
 `mpgs check <id> --order <first> --order <second> …` can check them all again.
+
+For each `[after.*]` table in `mpgs.toml`, `mpgs test` also runs a scenario after the
+path's own: it makes a payment through your backend, calls your Void or Refund route,
+and reads the gateway's record of the order. `void-pay` and `void-capture` need the
+request's transaction approved (VOID_PAYMENT, VOID_CAPTURE) and the order CANCELLED or
+AUTHORIZED; `void-authorize` stops the payment before its Capture and needs
+VOID_AUTHORIZATION and CANCELLED; `refund-full` and `refund-partial` (half the amount)
+need an approved REFUND, the order REFUNDED or PARTIALLY_REFUNDED, and the amount
+refunded on the order equal to the amount sent. `--scenario void-pay` (and the others)
+runs one, and `mpgs test` without `--scenario` runs every one your manifest maps.
 
 On a path that updates a token with a new card (a card change under an agreement), a
 profile that keeps one token per card refuses the update when an earlier run stored that
