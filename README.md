@@ -86,9 +86,12 @@ token works on the test gateway), and dynamic currency conversion.
 
 ## What you need
 
-- macOS or Linux. On Windows the CLI's own tests pass, but no one has run it against the
-  gateway from Windows yet (use PowerShell or Windows Terminal).
-  [uv](https://docs.astral.sh/uv/) (or `pipx`) with Python 3.11 or later
+- macOS, Linux or Windows (tested on Windows 11 in PowerShell, except the scenarios that
+  drive a browser)
+- [uv](https://docs.astral.sh/uv/) (or `pipx`) with Python 3.11 or later. uv installs
+  Python for you if you have none. On Windows, install uv in PowerShell with
+  `irm https://astral.sh/uv/install.ps1 | iex`, then open a new terminal so `uv` (and
+  later `mpgs`) is on your PATH
 - A **TEST merchant profile** on the MTF test gateway: its merchant ID (it starts with
   `TEST`) and its API password, from your payment service provider
 - The release: the wheel `mpgs_cli-<version>-py3-none-any.whl`, from the
@@ -101,7 +104,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.6.0/mpgs_cli-0.6.0-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.6.1/mpgs_cli-0.6.1-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -119,7 +122,8 @@ The CLI reads your merchant ID and API password, in this order, from:
    Credential Manager): `mpgs login TESTYOURMID` asks for the password once and stores
    it; then set only `MPGS_MERCHANT_ID`. On macOS, the first read may show a dialog asking
    whether Python may use the item: choose "Always Allow". On a Linux machine with no
-   password store (a server, a container), use 1 or 2 instead.
+   password store (a server, a container), or on Windows over SSH or from a service
+   (Credential Manager needs an interactive sign-in), use 1 or 2 instead.
 
 A merchant ID without the `TEST` prefix is refused before any call, and the CLI calls
 `https://mtf.gateway.mastercard.com` only. The password never goes into a log or file.
@@ -249,7 +253,8 @@ Each step's command ends with a `Next:` line: what to run after it.
 
 ## Command reference
 
-Every command takes `--json` (before the command: `mpgs --json path get <id>`), and
+Every command takes `--json`, before or after the command (`mpgs --json path get <id>`,
+`mpgs doctor --json`), and
 `mpgs <command> --help` shows its options with examples. Exit codes: `0` pass, `1` a test
 or check failed, `2` usage, `3` configuration (credentials, documentation, `mpgs.toml`),
 `4` the gateway or its firewall refused, `5` not available in the prototype.
