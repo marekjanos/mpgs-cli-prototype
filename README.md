@@ -111,7 +111,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.7.0/mpgs_cli-0.7.0-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.7.1/mpgs_cli-0.7.1-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -565,7 +565,7 @@ in `mpgs update` to its GitHub releases. No telemetry. Only the test cards from 
 
 It checks HTTPS certificates against your operating system's certificate store, as your
 browser does, so it works behind a company proxy that inspects HTTPS wherever your browser
-works.
+works. `mpgs update` has uv do the same when it installs a new `mpgs`.
 
 ## Troubleshooting
 
@@ -582,7 +582,7 @@ works.
 | `no documentation installed` | Reinstall the CLI (`uv tool install --force ./mpgs_cli-…whl`) |
 | `certificate is not trusted` or `certificate verify failed` | Your network inspects HTTPS with a root certificate your operating system does not trust: ask your IT team to install it system-wide |
 | `the download of … stopped after 0 of … bytes` (`mpgs update`) | A network filter, such as a company proxy, blocked the file. Your documentation is unchanged: try another network |
-| `invalid peer certificate: UnknownIssuer` (`uv tool install`) | Your network inspects HTTPS: add `--system-certs` (older uv: `--native-tls`) so uv uses your operating system's certificates |
+| `invalid peer certificate: UnknownIssuer` (`uv tool install`, or `mpgs update` from `mpgs` 0.7.0 or older) | Your network inspects HTTPS: add `--native-tls` to `uv tool install` (or set `UV_NATIVE_TLS=1` before `mpgs update`) so uv uses your operating system's certificates |
 | `uv could not install mpgs …` (`mpgs update`, exit `3`) | Your `mpgs` and documentation are unchanged: install the release as in step 1, or `mpgs update --no-cli` for the documentation only |
 
 ## Uninstall
