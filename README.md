@@ -31,7 +31,7 @@ it), then let `mpgs` check what you built.
 ## What it covers
 
 Every path below has been run end to end on the test gateway, with its test scenarios.
-The documentation pack bundled with this version has **99 paths, 59 distinct use
+The documentation pack bundled with this version has **102 paths, 62 distinct use
 cases**: most use cases come both as Pay (one step) and as Authorize + Capture, and you
 pick one of the two, so each is listed once here. `mpgs path list` shows them all.
 
@@ -40,6 +40,7 @@ pick one of the two, so each is listed once here. `mpgs path list` shows them al
 | Direct API (your server sends the card or a token) | 39 | 75 |
 | Hosted Session (card in the gateway's hosted fields or your mobile app) | 15 | 17 |
 | Hosted Checkout (the gateway's payment page) | 5 | 7 |
+| Hosted Batch (your server uploads CSV batches, validates MIC, polls status) | 3 | 3 |
 
 **Direct API**
 
@@ -74,6 +75,12 @@ The gateway's payment page as a redirect, embedded in yours, or as a payment lin
 verify the card on the page, then charge it from your server; sign up on the page, then
 charge the stored card on your own.
 
+**Hosted Batch**
+
+CSV file-based batches from your server (`PUT` CSV, `POST .../validate` SHA-1 MIC, `GET
+.../status`, `GET .../response`): bulk Pay, two-batch sequential Authorize and Capture,
+and bulk Create tokens (`TOKENIZE`).
+
 **Add-ons** (on the paths they apply to, each run on the test gateway on some of them;
 `mpgs path get <id>` lists a path's add-ons): statement
 descriptor, sub-merchant details (payment facilitators), airline data, cruise data,
@@ -104,7 +111,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.6.1/mpgs_cli-0.6.1-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.7.0/mpgs_cli-0.7.0-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -242,7 +249,9 @@ Authenticate Payer and the payment) is called again after the challenge, as the 
 browser calls it. A scenario that declines a later merchant-initiated payment changes
 the card's expiry at that step (the test gateway declines by card value): map the step
 to an endpoint that takes the card from the request, a test route if yours charges the
-stored card. You write no test scripts. A step can also be a command (`exec = "…"`) that prints one JSON
+stored card. On a Hosted Batch path, `{batchName}` is the name each batch is uploaded
+under (its own per batch) and `{records}` the rows to put in it, one CSV row each
+(`mpgs adapter init` writes the details into `mpgs-adapter.md`). You write no test scripts. A step can also be a command (`exec = "…"`) that prints one JSON
 object. On Windows, write it in single quotes (TOML's literal string, so backslashes stay)
 and put a path with spaces in double quotes inside it.
 
@@ -273,7 +282,7 @@ Which commands call the test gateway:
 ### `mpgs path find "<words>"` · `path list`
 
 Searches the paths in your own words: integration method (direct API, hosted session,
-hosted checkout), flow (pay, authorize and capture), capabilities (3-D Secure, token,
+hosted checkout, hosted batch), flow (pay, authorize and capture), capabilities (3-D Secure, token,
 recurring, Apple Pay, Google Pay, Click to Pay, network token, add a card, mobile app,
 …) and add-ons (aggregator, airline, …). With no words, it shows what you can search by.
 
@@ -375,9 +384,9 @@ Checked with a test transaction
   3-D Secure                3DS2 2.2.0     Initiate Authentication
 ```
 
-### `mpgs check <id> --order <order ID>`
+### `mpgs check <id> --order <order ID>` · `--token <token>`
 
-Reads the gateway's record of each order you name (no payment is made) and checks it:
+Reads the gateway's record of each order (or `--token` for bulk tokenization paths) you name (no payment is made) and checks it:
 the path's success rules for each transaction, and every field the path sends against
 the reference from `path run`. Your payer's own data (name, billing and shipping
 address, browser details) must be there, but its values are theirs and are not compared;
@@ -433,14 +442,15 @@ declined merchant-initiated payment, a declined card change): the steps before i
 the approve card, and the scenario fails when no step of `mpgs.toml` performs the step it
 starts at. `adapter check <id>` names the path steps `mpgs.toml` does not map.
 
-A path that moves money also offers the requests you send after the payment: Void and
-Refund (`mpgs path get <id>` shows them under "After the payment"). If your backend has a
-route for one, map it in a table of its own, `[after.void-pay]`, `[after.void-authorize]`,
-`[after.void-capture]` or `[after.refund]` (`init` writes them commented out; they take
+A path that moves money also offers the requests you send after the payment: Void,
+Partial Capture and Refund (`mpgs path get <id>` shows them under "After the payment"). If
+your backend has a route for one, map it in a table of its own, `[after.void-pay]`,
+`[after.void-authorize]`, `[after.void-capture]`, `[after.partial-capture]`,
+`[after.void-remainder]` or `[after.refund]` (`init` writes them commented out; they take
 `post`, `get` or `exec` and `body` as a step does). Their placeholders are `{orderId}`,
 `{targetTransactionId}` (the gateway's ID of the transaction to cancel: a payment, an
-authorization or a capture), and for a refund `{amount}` and `{currency}`. Without these
-tables nothing changes: those requests are not run.
+authorization or a capture), and for a refund or partial capture `{amount}` and
+`{currency}`. Without these tables nothing changes: those requests are not run.
 
 ### `mpgs test <id>`
 
@@ -474,12 +484,18 @@ lists `orders`: every order it made (a sign-up and each later payment have their
 `mpgs check <id> --order <first> --order <second> …` can check them all again.
 
 For each `[after.*]` table in `mpgs.toml`, `mpgs test` also runs a scenario after the
-path's own: it makes a payment through your backend, calls your Void or Refund route,
-and reads the gateway's record of the order. `void-pay` and `void-capture` need the
-request's transaction approved (VOID_PAYMENT, VOID_CAPTURE) and the order CANCELLED or
-AUTHORIZED; `void-authorize` stops the payment before its Capture and needs
-VOID_AUTHORIZATION and CANCELLED; `refund-full` and `refund-partial` (half the amount)
-need an approved REFUND, the order REFUNDED or PARTIALLY_REFUNDED, and the amount
+path's own: it makes a payment through your backend, calls your Void, Partial Capture or
+Refund route, and reads the gateway's record of the order. `void-pay` and `void-capture`
+need the request's transaction approved (VOID_PAYMENT, VOID_CAPTURE) and the order
+CANCELLED or AUTHORIZED; `void-authorize` stops the payment before its Capture and needs
+VOID_AUTHORIZATION and CANCELLED; `partial-capture` and `multi-capture` (from
+`[after.partial-capture]`) stop before the path's full Capture, capture half the amount
+once or twice, and need an approved CAPTURE, the order PARTIALLY_CAPTURED or CAPTURED, and
+the amount captured on the order equal to the sum sent; `void-remainder` captures half the
+amount, voids the remaining authorization, and needs VOID_AUTHORIZATION, the order
+CAPTURED, and the captured amount unchanged (whether a remainder can be voided depends
+on your acquirer: where it cannot, the gateway refuses the void); `refund-full` and `refund-partial` (half the
+amount) need an approved REFUND, the order REFUNDED or PARTIALLY_REFUNDED, and the amount
 refunded on the order equal to the amount sent. `--scenario void-pay` (and the others)
 runs one, and `mpgs test` without `--scenario` runs every one your manifest maps.
 
