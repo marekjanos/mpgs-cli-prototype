@@ -111,7 +111,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.7.1/mpgs_cli-0.7.1-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.8.0/mpgs_cli-0.8.0-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -483,6 +483,12 @@ and `approve` checks their fields as `check --addon` does. With `--json`, each s
 lists `orders`: every order it made (a sign-up and each later payment have their own), so
 `mpgs check <id> --order <first> --order <second> …` can check them all again.
 
+Most scenarios share one card number (the test gateway answers by its expiry), and
+`mpgs test` runs them one after another against the same backend. Anything your backend
+keeps about a card carries over: a deny list that holds the card after `decline` refuses
+every later scenario before it reaches the gateway. Clear that state between scenarios,
+or run each with `--scenario <name>` on a fresh backend.
+
 For each `[after.*]` table in `mpgs.toml`, `mpgs test` also runs a scenario after the
 path's own: it makes a payment through your backend, calls your Void, Partial Capture or
 Refund route, and reads the gateway's record of the order. `void-pay` and `void-capture`
@@ -535,6 +541,15 @@ Every scenario passed: your integration does what the path says on the test gate
 explained; `--full` adds each request and response, card data masked. `evidence` adds
 up your runs (`--since YYYY-MM-DD`).
 
+### `mpgs where`
+
+Where this `mpgs` lives, in one place: the Python interpreter it runs on, its package
+folder, its home (`~/.mpgs`), the CLI version, the documentation release, and the engine
+and Python API versions. `--python` prints only the interpreter's path, for a script that
+must run the same Python (`$(mpgs where --python) -c "import mpgs.engine"`). With
+`--json`: `cli_version`, `docs_version`, `engine_api`, `facade_api`, `home`, `package`,
+`python`. It makes no network call.
+
 ### `mpgs update` · `mpgs --version`
 
 `update` first looks for a newer `mpgs` in the
@@ -546,18 +561,54 @@ documentation (the paths, guides and API reference), checked the same way, so do
 that needs the new version installs in the same run. On Windows, where a running program
 cannot replace its own `.exe`, `update` updates the documentation and prints the exact
 `uv tool install --force` (or `pipx install --force`) command to install the new `mpgs`.
-`--no-cli` updates only the documentation and keeps your `mpgs`. An `mpgs` not installed
+On Windows the printed command installs a wheel that `update` has already downloaded and
+checked, from `~/.mpgs/downloads/`. `--no-cli` updates only the documentation and keeps
+your `mpgs`. `update --check` only reports what `update` would install (the CLI and the
+documentation release, and whether `mpgs` would restart): it downloads and changes
+nothing, and exits `5` when the release server cannot be reached. With `--json`:
+`cli`, `documentation` (each `installed` and `available`, `null` when nothing newer is
+out), `engine_api`, `facade_api` and `restart`. An `mpgs` not installed
 with uv or pipx (from source, say) is not replaced: `update` says a newer one is out, and
 you install it as in step 1. `--version` names the CLI and the documentation release.
 
 A path that needs a newer `mpgs` than yours is still listed and readable, but `path run`
 and `test` refuse it: "This path needs a newer mpgs: run `mpgs update`." (exit `5`).
 
+## Using the engine from Python
+
+`mpgs.engine` is the engine's Python API, for your own test tooling: it loads the
+installed paths and runs them, as `mpgs path run` does. Use the interpreter
+`mpgs where --python` prints.
+
+```python
+import mpgs.engine as engine
+print(engine.FACADE_API, engine.ENGINE_API)
+```
+
+**Versioning:** `FACADE_API` changes when a name below, a parameter or a return shape
+changes incompatibly. Adding a name or an optional keyword is not a change. `ENGINE_API`
+is the path features this engine runs (a path names the one it needs).
+
+- `pack_info()`: the installed documentation (`version`, `commit`, `engine_api`, `sha256`, `root` folder), or `None`.
+- `list_paths()`, `load_path(id)`, `load_addon(id)`: the paths and add-ons, as `run` takes them.
+- `capabilities()`: capability id to title.
+- `api_reference(operation)`: an operation's request fields (`"transaction/pay"`).
+- `scenarios(path)`, `scenario_card(...)`, `with_addons(...)`: a path's test scenarios, their cards, and a path with add-ons merged in.
+- `run(path, merchant, transport, order, ...)`: runs a path step by step and returns a `StepResult` for each; `on_step` is called after each step, `continue_on_fail` names steps that may fail without stopping the run. `run_passed(path, results)` says whether it passed.
+- `make_transport(creds, log_path)`, `Credentials`, `mask`, `explain`: the CLI's own transport (paced, masked, logged) and its helpers.
+- `hosted_fields_page`, `hosted_checkout_page`, `threeds_page`, `click_to_pay_page`: the payer's pages the browser steps use.
+- `EngineError`: raised when a path, add-on or documentation is missing.
+
+**Guardrails:** the bundled transport calls the MTF test gateway only, and `run()` refuses
+a merchant ID without the `TEST` prefix unless you pass `force=True`. Any other transport
+you pass in is your own responsibility.
+
 ## What it stores
 
 Everything lives in `~/.mpgs` (or `$MPGS_HOME`): the documentation, `log.jsonl` (every
 call the CLI made, card numbers and security codes masked), `runs/` (a summary per run,
-no card data) and `reference/`. Delete it at any time; the next command unpacks the
+no card data), `reference/`, and on Windows `downloads/` (the last checked `mpgs` wheel
+that `update` downloaded). Delete it at any time; the next command unpacks the
 documentation again.
 
 The CLI sends requests to the MTF test gateway, in `mpgs test` to your own backend, and
