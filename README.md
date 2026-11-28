@@ -111,7 +111,7 @@ token works on the test gateway), and dynamic currency conversion.
 ## 1. Install
 
 ```bash
-uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.8.0/mpgs_cli-0.8.0-py3-none-any.whl
+uv tool install https://github.com/marekjanos/mpgs-cli-prototype/releases/download/v0.9.0/mpgs_cli-0.9.0-py3-none-any.whl
 # (pipx install works the same way; or download the wheel and install the file)
 mpgs --version        # the CLI version and the documentation release it carries
 ```
@@ -331,7 +331,11 @@ path's own example requests, and saves the gateway's record as the reference for
 `check`. `--scenario challenge` runs a 3-D Secure challenge card through the gateway's
 test page (needs Google Chrome and `agent-browser`); `--addon <id>` adds an add-on the
 path lists (repeat it for several), and saves the reference for the path with them:
-give `check`, `adapter init` and `test` the same add-ons.
+give `check`, `adapter init` and `test` the same add-ons. The reference is a file in your
+mpgs home (`mpgs where` shows it), `reference/<path id>-<fingerprint>.json`: the
+fingerprint is the path's requests, add-ons included, so each set of add-ons has its
+own. When `check` or `test` finds none, it says which file it looked for and the
+`mpgs path run` that saves it (`reference_file` in `--json`).
 
 ```
 $ mpgs path run pay-apple-pay-merchant-decrypted-direct
